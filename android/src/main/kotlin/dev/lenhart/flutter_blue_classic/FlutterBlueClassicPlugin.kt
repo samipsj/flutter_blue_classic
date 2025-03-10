@@ -29,6 +29,9 @@ import io.flutter.plugin.common.MethodChannel.Result
 import java.util.UUID
 import java.util.concurrent.Executors
 
+import android.bluetooth.BluetoothProfile
+import android.content.Context
+
 /** FlutterBlueClassicPlugin */
 class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
@@ -141,6 +144,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             "turnOn" -> turnOn(result)
             "getAdapterState" -> result.success(getAdapterState())
             "bondedDevices" -> getBondedDevices(result)
+            "connectedDevices" -> getConnectedDevices(result)
             "startScan" -> startScan(result, call.argument<Boolean>("usesFineLocation") ?: false)
             "stopScan" -> stopScan(result)
             "isScanningNow" -> isScanningNow(result)
@@ -255,6 +259,59 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             }
         }
     }
+
+    @SuppressLint("MissingPermission")
+    private fun getConnectedDevices(result: Result) {
+        val permissions = mutableListOf<String>()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+    }
+
+    permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        if (success) {
+            val connectedDevicesList = mutableListOf<Map<String, Any?>>()
+            val profiles = listOf(BluetoothProfile.A2DP, BluetoothProfile.HEADSET)
+
+            val adapter = BluetoothAdapter.getDefaultAdapter() // Use local 'val' to avoid smart cast issues
+            if (adapter != null && adapter.isEnabled) {
+                for (profile in profiles) {
+                    adapter.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
+                        override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+                            val devices = proxy.connectedDevices
+                            for (device in devices) {
+                                Log.d("BLUETOOTH", "Connected Device: ${device.name} - ${device.address}")
+                                connectedDevicesList.add(BlueClassicHelper.bluetoothDeviceToMap(device))
+                            }
+                            adapter.closeProfileProxy(profile, proxy) // Use 'adapter' safely
+                            
+                            // Return result when all profiles are processed
+                            if (profile == profiles.last()) {
+                                result.success(connectedDevicesList)
+                            }
+                        }
+
+                        override fun onServiceDisconnected(profile: Int) {
+                            Log.d("BLUETOOTH", "Profile $profile disconnected")
+                        }
+                    }, profile)
+                }
+            } else {
+                result.error(
+                    "BLUETOOTH_DISABLED",
+                    "Bluetooth is disabled or not supported on this device",
+                    null
+                )
+            }
+        } else {
+            result.error(
+                PermissionManager.ERROR_PERMISSION_DENIED,
+                "Required permission(s) ${deniedPermissions?.joinToString() ?: ""} denied",
+                null
+            )
+        }
+    }
+    }
+
 
     @SuppressLint("MissingPermission")
     private fun startScan(result: Result, usesFineLocation: Boolean) {

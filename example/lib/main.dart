@@ -38,6 +38,8 @@ class _MainScreenState extends State<MainScreen> {
   int? _connectingToIndex;
   StreamSubscription? _scanningStateSubscription;
 
+  Set<BluetoothDevice> _connectedDevices = {};
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +100,17 @@ class _MainScreenState extends State<MainScreen> {
             onTap: () => _flutterBlueClassicPlugin.turnOn(),
           ),
           const Divider(),
+          if (_connectedDevices.isEmpty)
+            const Center(child: Text("No connected devices found yet"))
+          else
+            for (final result in _connectedDevices)
+              ListTile(
+                title: Text(
+                    "${result.name ?? result.alias ?? "???"} (${result.address})"),
+                subtitle: Text(
+                    "Bondstate: ${result.bondState.name}, Device type: ${result.type.name}"),
+              ),
+          const Divider(),
           if (scanResults.isEmpty)
             const Center(child: Text("No devices found yet"))
           else
@@ -138,6 +151,10 @@ class _MainScreenState extends State<MainScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
+          _flutterBlueClassicPlugin.connectedDevices.then((devices) {
+            _connectedDevices = (devices ?? []).toSet();
+            setState(() {});
+          });
           if (_isScanning) {
             _flutterBlueClassicPlugin.stopScan();
           } else {

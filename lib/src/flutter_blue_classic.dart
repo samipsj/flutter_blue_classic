@@ -29,6 +29,10 @@ class FlutterBlueClassic {
   /// Returns the list of bonded devices.
   Future<List<BluetoothDevice>?> get bondedDevices => _instance.bondedDevices();
 
+  /// Returns the list of connected devices.
+  Future<List<BluetoothDevice>?> get connectedDevices =>
+      _instance.connectedDevices();
+
   /// This will attempt to start scanning for Bluetooth devices.
   void startScan() => _instance.startScan(usesFineLocation);
 

@@ -69,6 +69,11 @@ abstract class FlutterBlueClassicPlatform extends PlatformInterface {
     throw UnimplementedError('bondedDevices() has not been implemented.');
   }
 
+  /// Returns the list of connected devices (bonded and active)
+  Future<List<BluetoothDevice>?> connectedDevices() {
+    throw UnimplementedError('connectedDevices has not been implemented.');
+  }
+
   /// Turns bluetooth on
   void turnOn() {
     throw UnimplementedError('turnOn() has not been implemented.');

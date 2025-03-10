@@ -63,6 +63,15 @@ class MethodChannelFlutterBlueClassic extends FlutterBlueClassicPlatform {
   }
 
   @override
+  Future<List<BluetoothDevice>?> connectedDevices() async {
+    return Platform.isAndroid
+        ? (await methodChannel.invokeMethod<List>("connectedDevices") ?? [])
+            .map((e) => BluetoothDevice.fromMap(e))
+            .toList()
+        : null;
+  }
+
+  @override
   Stream<bool> isScanning() {
     return scanStateEventChannel
         .receiveBroadcastStream()
