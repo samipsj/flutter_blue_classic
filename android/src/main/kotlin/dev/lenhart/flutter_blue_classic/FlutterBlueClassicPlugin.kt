@@ -37,6 +37,19 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
 
     companion object {
         const val TAG: String = "FlutterBlueClassic"
+        private var permissionManager: PermissionManager? = null
+
+        fun initialize(context: Context) {
+        if (permissionManager == null) {
+            permissionManager = PermissionManager(context.applicationContext, null)
+        }
+    }
+
+    fun getPermissionManager(): PermissionManager {
+        return permissionManager
+            ?: throw IllegalStateException("permissionManager not initialized. Call initialize() first.")
+    }
+
     }
 
     /// The MethodChannel that will the communication between Flutter and native Android
@@ -57,7 +70,6 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
     private lateinit var discoveryStateChannel: EventChannel
     private lateinit var discoveryStateReceiver: DiscoveryStateReceiver
 
-    private lateinit var permissionManager: PermissionManager
     private var bluetoothAdapter: BluetoothAdapter? = null
 
     private val connections = SparseArray<BluetoothConnectionWrapper>(2)
@@ -115,18 +127,21 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             getSystemService(flutterPluginBinding.applicationContext, BluetoothManager::class.java)
         bluetoothAdapter = bluetoothManager?.adapter
 
+        // Initialize permissionManager with application context
+        initialize(flutterPluginBinding.applicationContext)
+
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activityPluginBinding = binding
-        permissionManager = PermissionManager(context!!.applicationContext, binding.activity)
-        binding.addRequestPermissionsResultListener(permissionManager)
+        getPermissionManager().setActivity(binding.activity) // Update activity reference
+        binding.addRequestPermissionsResultListener(getPermissionManager())
     }
 
     override fun onDetachedFromActivity() {
-        activityPluginBinding?.removeRequestPermissionsResultListener(permissionManager)
+        activityPluginBinding?.removeRequestPermissionsResultListener(getPermissionManager())
         activityPluginBinding = null
-        permissionManager.setActivity(null)
+        getPermissionManager().setActivity(null)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
@@ -198,7 +213,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
-        permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
             run {
                 try {
                     if (success) {
@@ -237,7 +252,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
-        permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
             run {
                 if (success) {
                     val devices: List<MutableMap<String, Any?>>? =
@@ -267,7 +282,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
         permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
     }
 
-    permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+    getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
         if (success) {
             val connectedDevicesList = mutableListOf<Map<String, Any?>>()
             val profiles = listOf(BluetoothProfile.A2DP, BluetoothProfile.HEADSET)
@@ -324,7 +339,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
-        permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
             run {
                 if (success) {
                     val discoveryStartState = bluetoothAdapter?.startDiscovery()
@@ -349,7 +364,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             permissions.add(Manifest.permission.BLUETOOTH_SCAN)
         }
 
-        permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
             run {
                 if (success) {
                     result.success(bluetoothAdapter?.cancelDiscovery())
@@ -373,7 +388,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             permissions.add(Manifest.permission.BLUETOOTH_SCAN)
         }
 
-        permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
             run {
                 if (success) {
                     result.success(bluetoothAdapter?.isDiscovering ?: false)
@@ -406,7 +421,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
 
-        permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
             run {
                 if (success) {
                     val device = bluetoothAdapter?.getRemoteDevice(address)
@@ -434,7 +449,7 @@ class FlutterBlueClassicPlugin : FlutterPlugin, MethodCallHandler, ActivityAware
             permissions.add(Manifest.permission.BLUETOOTH_SCAN)
         }
 
-        permissionManager.ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
+        getPermissionManager().ensurePermissions(permissions.toTypedArray()) { success: Boolean, deniedPermissions: List<String>? ->
             if (!success) {
                 result.error(
                     PermissionManager.ERROR_PERMISSION_DENIED,
